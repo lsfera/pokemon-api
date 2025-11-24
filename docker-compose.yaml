@@ -1,0 +1,87 @@
+volumes:
+  postgres-data:
+
+configs:
+  pgadmin-servers:
+    content: |
+      {
+        "Servers": {
+          "1": {
+            "Name": "Local Postgres",
+            "Group": "Servers",
+            "Host": "${POSTGRES_HOSTNAME}",
+            "Port": ${POSTGRES_PORT},
+            "MaintenanceDB": "${POSTGRES_DB}",
+            "Username": "${POSTGRES_USER}",
+            "PassFile": "/config/pgpass"
+          }
+        }
+      }
+  pgadmin-pgpass:
+    content: |
+        ${POSTGRES_HOSTNAME}:${POSTGRES_PORT}:*:${POSTGRES_USER}:${POSTGRES_PASSWORD}
+services:
+  postgres:
+      image: postgres
+      restart: unless-stopped
+      shm_size: 128mb
+      env_file:
+          # Ensure that the variables in .env match the same variables in devcontainer.json
+          - .env
+      ports:
+        - "5432:5432"
+      # Add "forwardPorts": ["5432"] to **devcontainer.json** to forward PostgreSQL locally.
+      # (Adding the "ports" property to this file will not forward from a Codespace.)
+    
+  jaeger:
+      image: jaegertracing/opentelemetry-all-in-one:latest
+      container_name: jaeger
+      restart: unless-stopped
+      ports:
+        - "16686:16686"  # Jaeger UI
+        - "4317:4317"    # OTLP gRPC receiver
+        - "4318:4318"    # OTLP HTTP receiver
+        - "14250:14250"  # model.proto
+      environment:
+        - COLLECTOR_OTLP_ENABLED=true
+  pgadmin: 
+      container_name: pgadmin_container
+      image: dpage/pgadmin4
+      environment:
+          - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL:-pgadmin4@pgadmin.org}
+          - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD:-postgres}
+          - PGADMIN_CONFIG_SERVER_MODE=False
+          - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
+      ports:
+          - "${PGADMIN_PORT:-5050}:80"
+      entrypoint: /bin/sh -c "chmod 600 /pgpass; /entrypoint.sh;"
+      user: root
+      restart: unless-stopped
+      depends_on:
+        - postgres
+      configs:
+        - source: pgadmin-pgpass
+          target: /config/pgpass
+          uid: "5050"
+          gid: "5050"
+          mode: 0400
+        - source: pgadmin-servers
+          target: /pgadmin4/servers.json
+          mode: 0444
+  app:
+      build:
+        context: .
+        dockerfile: Dockerfile
+      env_file:
+        # Ensure that the variables in .env match the same variables in devcontainer.json
+        - .env
+      container_name: pokemon-api
+      restart: unless-stopped
+      expose:
+        - "${PORT}:${PORT}"
+      volumes:
+        - ..:/workspaces:cached
+      command: sleep infinity
+      depends_on:
+        - postgres
+        - jaeger
