@@ -20,6 +20,12 @@ pub struct PokeApi {
     base: String,
 }
 
+impl Default for PokeApi {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PokeApi {
     pub fn new() -> Self {
         let client = ClientBuilder::new(Client::new())

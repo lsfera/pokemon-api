@@ -1,7 +1,7 @@
+use async_graphql::SimpleObject;
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, SimpleObject)]
 pub struct Pokemon {
     pub id: i32,
     pub name: String,
@@ -11,7 +11,7 @@ pub struct Pokemon {
     pub sprites_front_default: Option<String>,
     pub types: Vec<String>,
     pub abilities: Vec<String>,
-    pub fetched_at: Option<DateTime<Utc>>,
+    pub fetched_at: Option<String>,
 }
 
 // Shape from remote API (subset)
@@ -33,13 +33,21 @@ pub struct RemoteSprites {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RemoteTypeWrapper { pub r#type: RemoteType }
+pub struct RemoteTypeWrapper {
+    pub r#type: RemoteType,
+}
 #[derive(Debug, Deserialize)]
-pub struct RemoteType { pub name: String }
+pub struct RemoteType {
+    pub name: String,
+}
 #[derive(Debug, Deserialize)]
-pub struct RemoteAbilityWrapper { pub ability: RemoteAbility }
+pub struct RemoteAbilityWrapper {
+    pub ability: RemoteAbility,
+}
 #[derive(Debug, Deserialize)]
-pub struct RemoteAbility { pub name: String }
+pub struct RemoteAbility {
+    pub name: String,
+}
 
 impl From<RemotePokemon> for Pokemon {
     fn from(r: RemotePokemon) -> Self {

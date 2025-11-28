@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-axum = { version = "0.7", features = ["macros", "json"] }
+axum = { version = "0.6", features = ["macros", "json"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -38,13 +38,5 @@ dotenvy = "0.15"
 thiserror = "1"
 anyhow = "1.0.100"
 tower-http = { version = "0.6", features = ["trace"] }
-
-[dev-dependencies]
-axum = { version = "0.7", features = ["macros", "json"] }
-serde_json = "1"
-reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
-tokio-postgres = { version = "0.7", features = [
-    "with-chrono-0_4",
-    "with-serde_json-1",
-] }
-deadpool-postgres = "0.12"
+async-graphql = "6"
+async-graphql-axum = "6"

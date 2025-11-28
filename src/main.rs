@@ -2,13 +2,13 @@ mod config;
 mod db;
 mod models;
 mod pokeapi;
-mod routes;
+mod schema;
 use crate::config::Config;
 use crate::db::{init_pool, migrate};
-use crate::routes::{create_router, AppState};
-use axum::Router;
+use crate::pokeapi::PokeApi;
+use crate::schema::{build_schema, PokemonSchema};
+use axum::{Extension, Router};
 use std::net::SocketAddr;
-use tokio::net::TcpListener;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Registry};
 
 #[tokio::main]
@@ -17,15 +17,26 @@ async fn main() -> anyhow::Result<()> {
     let cfg = Config::from_env();
     let pool = init_pool(&cfg.database_url).await?;
     migrate(&pool).await?;
-    let state = AppState {
-        pool,
-        pokeapi: pokeapi::PokeApi::new(),
-    };
-    let app: Router = create_router(state);
+
+    let pokeapi = PokeApi::new();
+    let schema: PokemonSchema = build_schema(pokeapi);
+
+    async fn graphql_handler(
+        schema: Extension<PokemonSchema>,
+        req: axum::extract::Json<async_graphql::Request>,
+    ) -> axum::Json<async_graphql::Response> {
+        axum::Json(schema.execute(req.0).await)
+    }
+
+    let app = Router::new()
+        .route("/graphql", axum::routing::post(graphql_handler))
+        .layer(Extension(schema));
+
     let addr: SocketAddr = format!("0.0.0.0:{}", cfg.port).parse()?;
-    tracing::info!(%addr, "starting server");
-    let listener = TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
+    tracing::info!(%addr, "starting GraphQL server");
+    axum::Server::bind(&addr)
+        .serve(app.into_make_service())
+        .await?;
 
     opentelemetry::global::shutdown_tracer_provider();
     Ok(())

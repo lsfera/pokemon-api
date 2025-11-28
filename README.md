@@ -10,14 +10,11 @@ A Rust web service built with Axum that exposes Pokemon-related endpoints while 
 
 ## Features
 
-- JSON endpoints using Axum 0.7
-- Outbound HTTP requests via `reqwest` wrapped with `reqwest-middleware` and `reqwest-tracing`
-- Automatic span creation for inbound requests (`tower-http` TraceLayer) and outbound calls
-- OTLP export (traces) to a configurable collector (default: `http://jaeger:4317`)
+- GraphQL endpoint at `/graphql` using async-graphql and Axum 0.6
+- Query Pokemon by name (fetches from PokeAPI and caches in PostgreSQL)
+- Distributed tracing (OpenTelemetry)
+- Multi-platform Docker builds
 
-## Project Structure
-
-```
 src/
   main.rs          # startup, tracing init, server bootstrap
   config.rs        # environment variable parsing
@@ -25,6 +22,16 @@ src/
   models.rs        # domain types & (de)serialization
   pokeapi.rs       # external PokeAPI client with tracing middleware
   routes.rs        # axum router + handlers
+## Project Structure
+
+```
+src/
+  main.rs          # startup, tracing init, GraphQL server
+  config.rs        # environment variable parsing
+  db.rs            # pool init & migrations
+  models.rs        # domain types & (de)serialization
+  pokeapi.rs       # external PokeAPI client with tracing middleware
+  schema.rs        # async-graphql schema and resolvers
 ```
 
 ## Environment Variables
@@ -61,17 +68,57 @@ cargo build
 cargo run
 ```
 
-### 4. Test an Endpoint
+### 4. Test the GraphQL API
+
+You can query the GraphQL endpoint using `curl`, `httpie`, or any GraphQL client:
 
 ```bash
-curl http://localhost:3000/pokemon/ditto
+curl -X POST http://localhost:3000/graphql \
+  -H 'Content-Type: application/json' \
+  -d '{"query": "{ pokemon(name: \"ditto\") { id name height weight base_experience sprites_front_default types abilities } }"}'
 ```
 
-(Adjust route names to what's implemented in `routes.rs`.)
+Or use [Insomnia](https://insomnia.rest/) or [Postman](https://www.postman.com/) with a POST request to `/graphql`.
+
+Example query:
+
+```graphql
+{
+  pokemon(name: "ditto") {
+    id
+    name
+    height
+    weight
+    base_experience
+    sprites_front_default
+    types
+    abilities
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "data": {
+    "pokemon": {
+      "id": 132,
+      "name": "ditto",
+      "height": 3,
+      "weight": 40,
+      "base_experience": 101,
+      "sprites_front_default": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/132.png",
+      "types": ["normal"],
+      "abilities": ["limber", "imposter"]
+    }
+  }
+}
+```
 
 ## Tracing & Observability
 
-- Inbound requests: A span is created per request; failures are classified.
+- Inbound GraphQL requests: Spans are created for each query and resolver.
 - Outbound PokeAPI calls: Spans include HTTP metadata and propagate context.
 - OTLP Export: Configure collector via `OTEL_EXPORTER_OTLP_ENDPOINT`. To run Jaeger locally with OTLP ingest:
 
